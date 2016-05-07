@@ -8,6 +8,7 @@ import fs from 'fs';
 import once from 'lodash/once';
 import webpackConfig from '../settings/webpack';
 import webpackDevMiddleware from 'webpack-dev-middleware';
+import webpackHotMiddleware from 'webpack-hot-middleware';
 
 process.on('unhandledRejection', (value = {}) =>
   console.error(value.stack || value));
@@ -15,9 +16,15 @@ process.on('unhandledRejection', (value = {}) =>
 const app = express();
 const compiler = webpack(webpackConfig);
 
-let bundleReady = false;
-compiler.plugin('done', () => {
-  bundleReady = true;
+const devMiddleware = webpackDevMiddleware(compiler, {
+  stats: true,
+  publicPath: webpackConfig.output.publicPath,
+});
+
+const hotMiddleware = webpackHotMiddleware(compiler, {
+  log: console.log,
+  path: '/hmr/__webpack_hmr',
+  heartbeat: 10 * 1000,
 });
 
 function clearRequire(modulePath) {
@@ -34,15 +41,26 @@ function serverMiddleware(req, res, next) {
   server(req, res, next);
 }
 
+function updateStilr() {
+  hotMiddleware.publish({
+    action: 'update-stilr',
+    payload: require('./server').getComponentCss(), // eslint-disable-line global-require
+  });
+}
+
+let bundleReady = false;
+compiler.plugin('done', () => {
+  bundleReady = true;
+});
+
 compiler.plugin('watch-run', (c, callback) => {
   clearRequire(__dirname);
+  updateStilr();
   callback();
 });
 
-app.use(webpackDevMiddleware(compiler, {
-  stats: true,
-  publicPath: webpackConfig.output.publicPath,
-}));
+app.use(devMiddleware);
+app.use(hotMiddleware);
 
 app.use((req, res, next) => {
   const ready = () => serverMiddleware(req, res, next);

@@ -9,12 +9,19 @@ import webpack from 'webpack';
 const prod = env === 'production';
 const compressJs = prod;
 const extractCss = true;
+const useHmr = !prod;
 
 const cssPipeline = [
   'style-loader',
   prod ? 'css-loader?minimize' : 'css-loader',
   'postcss-loader',
 ];
+
+const jsLoader = {
+  test: /\.js$/,
+  exclude: /node_modules/,
+  loaders: ['babel-loader'],
+};
 
 const config = {
   context: `${__dirname}/../src`,
@@ -37,11 +44,7 @@ const config = {
   },
   module: {
     loaders: [
-      {
-        test: /\.js$/,
-        exclude: /node_modules/,
-        loader: 'babel-loader',
-      },
+      jsLoader,
       {
         test: /\.json$/,
         loader: 'json-loader',
@@ -67,6 +70,17 @@ const config = {
     }),
   ],
 };
+
+if (useHmr) {
+  config.entry.app.unshift('./hmr-client?path=/hmr/__webpack_hmr&timeout=20000');
+  config.output.publicPath = '/hmr';
+  jsLoader.loaders.unshift('react-hot');
+  config.plugins.push(
+    new webpack.optimize.OccurrenceOrderPlugin(),
+    new webpack.HotModuleReplacementPlugin(),
+    new webpack.NoErrorsPlugin(),
+  );
+}
 
 if (extractCss) {
   config.plugins.push(

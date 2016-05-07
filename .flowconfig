@@ -9,3 +9,4 @@ suppress_comment= \\(.\\|\n\\)*\\$FlowFixMe
 .*/node_modules/stilr
 .*/node_modules/react-motion
 .*/node_modules/json5
+.*/node_modules/systemjs-builder
